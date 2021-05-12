@@ -1,40 +1,39 @@
 package ru.fintech.qa.homework;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import ru.fintech.qa.homework.utils.BeforeUtils;
+import ru.fintech.qa.homework.utils.DbClient;
 
-import java.sql.*;
+import java.sql.SQLException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestSQL {
 
-    private static Connection connection;
+    private DbClient client;
 
-    @BeforeEach
-    public void init() throws SQLException {
+    @BeforeAll
+    static void staticInit() {
         BeforeUtils.createData();
-        connection = getNewConnection();
     }
 
-    @AfterEach
+    @BeforeAll
+    public void init() throws SQLException {
+        client = new DbClient();
+    }
+
+    @AfterAll
     public void close() throws SQLException {
-        connection.close();
-    }
-
-    private Connection getNewConnection() throws SQLException {
-        String url = "jdbc:h2:mem:myDb";
-        String user = "sa";
-        String passwd = "sa";
-        return DriverManager.getConnection(url, user, passwd);
+        client.getConnection().close();
     }
 
     @Test
     public void Test1() throws SQLException {
         String sql = "SELECT count(id) as count FROM public.animal;";
-        PreparedStatement statement = connection.prepareStatement(sql);
+        PreparedStatement statement = client.getStatement(sql);
         boolean hasResult = statement.execute();
         assertTrue(hasResult);
         ResultSet set = statement.getResultSet();
@@ -44,21 +43,13 @@ public class TestSQL {
     }
 
     @Test
-    public void Test2() throws SQLException {
+    public void Test2() {
         for (int i = 1; i <= 10; i++) {
             String sql = "INSERT INTO public.animal " +
                     "(id, \"name\", age, \"type\", sex, place) " +
                     "VALUES(" + i + ", 'Бусинка', 2, 1, 1, 1);";
-            assertThrows(SQLException.class, () -> executeUpdate(sql));
+            assertThrows(SQLException.class, () -> client.executeUpdate(sql));
         }
-
-    }
-
-    private int executeUpdate(final String query) throws SQLException {
-        Statement statement = connection.createStatement();
-        // Для Insert, Update, Delete
-        int result = statement.executeUpdate(query);
-        return result;
     }
 
     @Test
@@ -66,15 +57,15 @@ public class TestSQL {
         String sql = "INSERT INTO public.workman " +
                 "(id, \"name\", age, \"position\") " +
                 "VALUES(1, " + null + ", 23, 1);";
-        assertThrows(SQLException.class, () -> executeUpdate(sql));
+        assertThrows(SQLException.class, () -> client.executeUpdate(sql));
     }
 
     @Test
     public void Test4() throws SQLException {
         String sql = "INSERT INTO public.places (id, \"row\", place_num, \"name\") VALUES(6, 1, 185, 'Загон 1');";
-        assertEquals(1, executeUpdate(sql));
+        assertEquals(1, client.executeUpdate(sql));
         sql = "SELECT count(id) as count FROM public.places;";
-        PreparedStatement statement = connection.prepareStatement(sql);
+        PreparedStatement statement = client.getStatement(sql);
         boolean hasResult = statement.execute();
         assertTrue(hasResult);
         ResultSet set = statement.getResultSet();
@@ -86,7 +77,7 @@ public class TestSQL {
     @Test
     public void Test5() throws SQLException {
         String sql = "SELECT count(name) as count from public.zoo where name in ('Центральный', 'Северный', 'Западный');";
-        PreparedStatement statement = connection.prepareStatement(sql);
+        PreparedStatement statement = client.getStatement(sql);
         boolean hasResult = statement.execute();
         assertTrue(hasResult);
         ResultSet set = statement.getResultSet();
